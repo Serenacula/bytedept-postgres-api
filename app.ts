@@ -36,15 +36,19 @@ app.get("/app_events", (request, response) => {
             throw Error(`received non-string query`)
         } else {
             let sqlQuery = "SELECT * FROM app_events"
+            const queryValues = []
             const startOfMonth = month ? getMonthStart(month) : undefined
             const endOfMonth = month ? getMonthEnd(month) : undefined
 
             if (bot_id && month) {
-                sqlQuery += ` WHERE (bot_id = '${bot_id}') AND (created_at BETWEEN '${startOfMonth}' AND '${endOfMonth}')`
+                sqlQuery += ` WHERE (bot_id = $1::text) AND (created_at BETWEEN $2::date AND $3::date)`
+                queryValues.push(bot_id, startOfMonth, endOfMonth)
             } else if (month) {
-                sqlQuery += ` WHERE created_at BETWEEN '${startOfMonth}' AND '${endOfMonth}'`
+                sqlQuery += ` WHERE created_at BETWEEN $1::date AND $2::date`
+                queryValues.push(startOfMonth, endOfMonth)
             } else if (bot_id) {
-                sqlQuery += ` WHERE bot_id = '${bot_id}'`
+                sqlQuery += ` WHERE bot_id = $1::text`
+                queryValues.push(bot_id)
             }
 
             sqlQuery += ` ORDER BY created_at ASC LIMIT 1000`
@@ -53,7 +57,12 @@ app.get("/app_events", (request, response) => {
             
             `)
 
-            client.query(sqlQuery, (error, result) => {
+            const queryWithParams = {
+                text: sqlQuery,
+                values: queryValues,
+            }
+
+            client.query(queryWithParams, (error, result) => {
                 if (error) {
                     console.log(`QUERY ERROR: ${error}`)
                     throw error
